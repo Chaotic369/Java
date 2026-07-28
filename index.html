@@ -3,11 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Java Web Compiler</title>
+    <title>CheerpJ WebAssembly Runner</title>
+    <!-- Load the CheerpJ 3 Engine -->
+    <script src="https://cj3.leaningtech.com/3.0/cj3loader.js"></script>
     <style>
         body {
-            /* Deep blue background */
-            background-color: #000432; 
+            background-color: #000432; /* Your deep blue preference */
             color: white;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
@@ -17,9 +18,8 @@
             align-items: center;
         }
 
-        h1 {
-            margin-bottom: 10px;
-        }
+        h1 { margin-bottom: 5px; }
+        .subtitle { font-size: 14px; color: #aaa; margin-bottom: 20px; }
 
         .editor-container {
             width: 80%;
@@ -30,9 +30,8 @@
 
         textarea {
             width: 100%;
-            height: 300px;
-            /* Deep purple background for the editor */
-            background-color: #1a0033; 
+            height: 200px;
+            background-color: #1a0033; /* Deep purple */
             color: #ffffff;
             font-family: 'Courier New', Courier, monospace;
             font-size: 16px;
@@ -43,15 +42,11 @@
             resize: vertical;
         }
 
-        textarea:focus {
-            outline: none;
-            border-color: #8833ff;
-        }
-
         .controls {
             margin-top: 15px;
             display: flex;
-            justify-content: flex-end;
+            justify-content: space-between;
+            align-items: center;
         }
 
         button {
@@ -63,21 +58,15 @@
             border: none;
             border-radius: 5px;
             cursor: pointer;
-            transition: background-color 0.2s;
+            transition: 0.2s;
         }
 
-        button:hover {
-            background-color: #9955ff;
-        }
-
-        button:disabled {
-            background-color: #555;
-            cursor: not-allowed;
-        }
+        button:hover { background-color: #9955ff; }
+        button:disabled { background-color: #555; cursor: not-allowed; }
 
         #output {
             width: 100%;
-            min-height: 150px;
+            min-height: 200px;
             background-color: #000000;
             color: #00ffcc;
             padding: 15px;
@@ -92,76 +81,67 @@
 </head>
 <body>
 
-    <h1>Java Web Compiler</h1>
+    <h1>Wasm Java Engine</h1>
+    <div class="subtitle">Powered by CheerpJ 3 (No Backend Required)</div>
     
     <div class="editor-container">
-        <!-- Default Java boilerplate -->
-        <textarea id="codeEditor">public class Main {
-    public static void main(String[] args) {
-        System.out.println("Hello from the web compiler!");
-    }
-}</textarea>
+        <textarea id="codeEditor" readonly>
+// CheerpJ runs COMPILED Java. 
+// It is a Java Runtime Environment (JRE) in your browser, not a compiler (JDK).
+// To use this, you must compile your .java file to a .jar or .class file first, 
+// and then CheerpJ will execute it directly on the webpage!
+        </textarea>
         
         <div class="controls">
-            <button id="runBtn" onclick="runCode()">Run Code</button>
+            <span id="status">Loading WebAssembly Engine...</span>
+            <button id="runBtn" onclick="runCompiledJava()" disabled>Run Java App</button>
         </div>
 
-        <div id="output">Output will appear here...</div>
+        <div id="output">Initializing CheerpJ... This downloads the Java environment into your browser on the first load.</div>
     </div>
 
     <script>
-        async function runCode() {
-            const code = document.getElementById('codeEditor').value;
-            const outputBox = document.getElementById('output');
-            const runBtn = document.getElementById('runBtn');
+        const outputBox = document.getElementById('output');
+        const statusText = document.getElementById('status');
+        const runBtn = document.getElementById('runBtn');
 
-            // Set loading state
-            outputBox.innerText = "Compiling and running...";
+        // 1. Initialize the CheerpJ Engine when the page loads
+        async function bootCheerpJ() {
+            try {
+                // We customize cheerpjInit to hijack Java's System.out.print 
+                // and route it directly into our black HTML output box!
+                await cheerpjInit({
+                    stdout: (text) => { outputBox.innerText += text; },
+                    stderr: (text) => { outputBox.innerText += text; }
+                });
+                
+                outputBox.innerText = "CheerpJ Engine Ready! \nThe browser can now run Java bytecode natively.\n\n";
+                statusText.innerText = "Engine Active";
+                runBtn.disabled = false;
+            } catch (error) {
+                outputBox.innerText = "Failed to load CheerpJ: " + error;
+            }
+        }
+
+        // 2. Function to execute a compiled Java file
+        async function runCompiledJava() {
+            outputBox.innerText = "Running...\n";
             runBtn.disabled = true;
 
-            // Using the Piston API to execute code
-            const payload = {
-                language: "java",
-                version: "15.0.2",
-                files: [
-                    {
-                        name: "Main.java",
-                        content: code
-                    }
-                ]
-            };
-
             try {
-                const response = await fetch("https://emacs.piston.rs/api/v2/execute", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify(payload)
-                });
-
-                const result = await response.json();
-
-                if (result.compile && result.compile.code !== 0) {
-                    // Compilation error
-                    outputBox.innerText = "COMPILATION ERROR:\n" + result.compile.output;
-                    outputBox.style.color = "#ff4444";
-                } else if (result.run) {
-                    // Execution output or runtime error
-                    outputBox.innerText = result.run.output || "Program finished with no output.";
-                    outputBox.style.color = result.run.code === 0 ? "#00ffcc" : "#ff4444";
-                } else {
-                    outputBox.innerText = "An unknown error occurred.";
-                }
-
+                // In a real app, you would upload a .jar file here.
+                // For this demo, we are telling CheerpJ to run a built-in Java tool 
+                // to prove that the JVM is actually running in your browser!
+                await cheerpjRunMain("jshell", "/app/"); 
             } catch (error) {
-                outputBox.innerText = "Network Error: Could not connect to the execution server.\n" + error.message;
-                outputBox.style.color = "#ff4444";
+                outputBox.innerText += "\nExecution Error: " + error;
             } finally {
-                // Restore button state
                 runBtn.disabled = false;
             }
         }
+
+        // Start the boot process
+        bootCheerpJ();
     </script>
 </body>
 </html>
