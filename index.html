@@ -79,7 +79,7 @@
 
 <div class="container">
     <h2>Standalone Java Compiler</h2>
-        <div class="subtitle">Cloud Execution via Codex API</div>
+        <div class="subtitle">Cloud Execution via Paiza.IO API</div>
     
     <!-- Code Editor -->
     <textarea id="codeEditor">
@@ -106,31 +106,54 @@ public class Main {
         outputConsole.innerHTML = '<span style="color: yellow;">Sending code to cloud compiler...</span>';
 
         try {
-                    // Call the free Codex API for code execution
-                    const response = await fetch('https://api.codex.jaagrav.in', {
+                    // Call the free Paiza.IO API for code execution
+                    const createResponse = await fetch('https://api.paiza.io/runners/create', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({
                             language: 'java',
-                            code: code
+                            source_code: code,
+                            api_key: 'guest'
                         })
                     });
 
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
+                    if (!createResponse.ok) {
+                        throw new Error(`HTTP error! status: ${createResponse.status}`);
                     }
 
-                    const data = await response.json();
+                    const createData = await createResponse.json();
+                    if (createData.error) throw new Error(createData.error);
             
-                    // Format and display the output
-                    if (data.error && data.error.length > 0) {
-                        // Compilation or Runtime error
-                        outputConsole.innerHTML = `<span class="error">${escapeHTML(data.error)}</span>`;
+                    const runnerId = createData.id;
+                    outputConsole.innerHTML = '<span style="color: yellow;">Executing in cloud...</span>';
+
+                    // Poll for the result until completed (max 10 seconds)
+                    let detailsData;
+                    for (let i = 0; i < 10; i++) {
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                        const detailsResponse = await fetch(`https://api.paiza.io/runners/get_details?id=${runnerId}&api_key=guest`);
+                        detailsData = await detailsResponse.json();
+                
+                        if (detailsData.status === 'completed') break;
+                    }
+
+                    if (detailsData.status !== 'completed') {
+                        throw new Error('Execution timed out.');
+                    }
+            
+                    // Format and display the output based on compilation/runtime status
+                    if (detailsData.build_exit_code !== 0) {
+                        // Compilation error
+                        outputConsole.innerHTML = `<span class="error">${escapeHTML(detailsData.build_stderr || detailsData.build_stdout || "Compilation error")}</span>`;
+                    } else if (detailsData.exit_code !== 0) {
+                        // Runtime error
+                        outputConsole.innerHTML = `<span class="error">${escapeHTML(detailsData.stderr || detailsData.stdout || "Runtime error")}</span>`;
                     } else {
                         // Success
-                        outputConsole.textContent = data.output || "Program ran successfully with no output.";
+                        outputConsole.textContent = detailsData.stdout || "Program ran successfully with no output.";
                     }
 
                 } catch (error) {
