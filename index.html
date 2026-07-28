@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Java Web Compiler (Standalone)</title>
+    <style>
+        body {
+            background-color: #000432;
+            color: white;
+            font-family: 'Courier New', Courier, monospace;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            width: 100%;
+            max-width: 800px;
+        }
+        h2 {
+            color: #00e5ff;
+            margin-bottom: 5px;
+        }
+        .subtitle {
+            color: #888;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        textarea {
+            width: 100%;
+            height: 300px;
+            background-color: #010a26;
+            color: #00ff00;
+            border: 2px solid #333;
+            border-radius: 5px;
+            padding: 15px;
+            font-size: 16px;
+            box-sizing: border-box;
+            resize: vertical;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: #00e5ff;
+        }
+        button {
+            background-color: #00e5ff;
+            color: #000432;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 15px 0;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background-color: #00b3cc;
+        }
+        .output-box {
+            background-color: #000000;
+            color: #ffffff;
+            border: 1px solid #555;
+            padding: 15px;
+            min-height: 150px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        .error {
+            color: #ff3333;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Standalone Java Compiler</h2>
+    <div class="subtitle">Cloud Execution via Piston API</div>
+    
+    <!-- Code Editor -->
+    <textarea id="codeEditor">
+public class Main {
+    public static void main(String[] args) {
+        System.out.println("Hello, Jamshedpur!");
+        System.out.println("Running Java directly from a single HTML file.");
+    }
+}
+    </textarea>
+    
+    <button onclick="compileCode()">Run Code</button>
+    
+    <!-- Console Output -->
+    <h3 style="color: #00e5ff;">Console Output:</h3>
+    <div id="outputConsole" class="output-box">Waiting for execution...</div>
+</div>
+
+<script>
+    async function compileCode() {
+        const code = document.getElementById('codeEditor').value;
+        const outputConsole = document.getElementById('outputConsole');
+        
+        outputConsole.innerHTML = '<span style="color: yellow;">Sending code to cloud compiler...</span>';
+
+        try {
+            // Call the public Piston code execution API
+            const response = await fetch('https://emkc.org/api/v2/piston/execute', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    language: 'java',
+                    version: '*', // The API automatically resolves '*' to the latest installed Java version
+                    files: [
+                        {
+                            name: 'Main.java',
+                            content: code
+                        }
+                    ]
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            // Format and display the output based on compilation/runtime status
+            if (data.compile && data.compile.code !== 0) {
+                // Compilation error
+                outputConsole.innerHTML = `<span class="error">${escapeHTML(data.compile.output)}</span>`;
+            } else if (data.run) {
+                if (data.run.code !== 0) {
+                    // Runtime error
+                    outputConsole.innerHTML = `<span class="error">${escapeHTML(data.run.output)}</span>`;
+                } else {
+                    // Success
+                    outputConsole.textContent = data.run.output || "Program ran successfully with no output.";
+                }
+            } else {
+                outputConsole.textContent = "Unknown response from execution server.";
+            }
+
+        } catch (error) {
+            outputConsole.innerHTML = `<span class="error">Execution failed: ${error.message}\n(Ensure you have an active internet connection)</span>`;
+        }
+    }
+
+    // Helper to prevent HTML injection in the output box
+    function escapeHTML(str) {
+        return str.replace(/[&<>'"]/g, 
+            tag => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                "'": '&#39;',
+                '"': '&quot;'
+            }[tag] || tag)
+        );
+    }
+</script>
+
+</body>
+</html>
