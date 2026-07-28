@@ -4,11 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CheerpJ WebAssembly Runner</title>
-    <!-- Load the CheerpJ 3 Engine -->
-    <script src="https://cj3.leaningtech.com/3.0/cj3loader.js"></script>
     <style>
         body {
-            background-color: #000432; /* Your deep blue preference */
+            background-color: #000432; 
             color: white;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
@@ -18,11 +16,11 @@
             align-items: center;
         }
 
-        h1 { margin-bottom: 5px; }
-        .subtitle { font-size: 14px; color: #aaa; margin-bottom: 20px; }
+        h1 { margin-bottom: 5px; text-align: center; }
+        .subtitle { font-size: 14px; color: #aaa; margin-bottom: 20px; text-align: center; }
 
         .editor-container {
-            width: 80%;
+            width: 100%;
             max-width: 1000px;
             display: flex;
             flex-direction: column;
@@ -30,11 +28,11 @@
 
         textarea {
             width: 100%;
-            height: 200px;
-            background-color: #1a0033; /* Deep purple */
+            height: 150px;
+            background-color: #1a0033;
             color: #ffffff;
             font-family: 'Courier New', Courier, monospace;
-            font-size: 16px;
+            font-size: 14px;
             padding: 15px;
             border: 2px solid #444;
             border-radius: 8px;
@@ -47,12 +45,14 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
         }
 
         button {
             background-color: #8833ff;
             color: white;
-            padding: 10px 30px;
+            padding: 10px 20px;
             font-size: 16px;
             font-weight: bold;
             border: none;
@@ -93,23 +93,35 @@
         </textarea>
         
         <div class="controls">
-            <span id="status">Loading WebAssembly Engine...</span>
+            <span id="status">Waiting for page to load...</span>
             <button id="runBtn" onclick="runCompiledJava()" disabled>Run Java App</button>
         </div>
 
-        <div id="output">Initializing CheerpJ... This downloads the Java environment into your browser on the first load.</div>
+        <div id="output">Initializing CheerpJ...</div>
     </div>
+
+    <!-- Move the CheerpJ script here so it loads right before we execute our code -->
+    <script src="https://cj3.leaningtech.com/3.0/cj3loader.js"></script>
 
     <script>
         const outputBox = document.getElementById('output');
         const statusText = document.getElementById('status');
         const runBtn = document.getElementById('runBtn');
 
-        // 1. Initialize the CheerpJ Engine when the page loads
-        async function bootCheerpJ() {
+        // Wait for the entire window and external scripts to load
+        window.addEventListener('load', async () => {
+            
+            // Safety check: Did the code editor block the download?
+            if (typeof cheerpjInit === 'undefined') {
+                statusText.innerText = "Load Failed";
+                outputBox.style.color = "#ff4444";
+                outputBox.innerText = "ERROR: The CheerpJ engine could not be downloaded.\n\nSince you are using a mobile code editor, its built-in previewer is likely blocking external scripts. \n\nFix: Save this file and open it directly in a real mobile browser (like Chrome or Brave).";
+                return;
+            }
+
             try {
-                // We customize cheerpjInit to hijack Java's System.out.print 
-                // and route it directly into our black HTML output box!
+                statusText.innerText = "Loading WebAssembly Engine...";
+                
                 await cheerpjInit({
                     stdout: (text) => { outputBox.innerText += text; },
                     stderr: (text) => { outputBox.innerText += text; }
@@ -119,29 +131,25 @@
                 statusText.innerText = "Engine Active";
                 runBtn.disabled = false;
             } catch (error) {
-                outputBox.innerText = "Failed to load CheerpJ: " + error;
+                outputBox.style.color = "#ff4444";
+                outputBox.innerText = "Failed to boot CheerpJ: " + error;
             }
-        }
+        });
 
-        // 2. Function to execute a compiled Java file
         async function runCompiledJava() {
-            outputBox.innerText = "Running...\n";
+            outputBox.innerText = "Running built-in Java test...\n\n";
             runBtn.disabled = true;
 
             try {
-                // In a real app, you would upload a .jar file here.
-                // For this demo, we are telling CheerpJ to run a built-in Java tool 
-                // to prove that the JVM is actually running in your browser!
+                // Running a test tool built into the JVM to prove it works
                 await cheerpjRunMain("jshell", "/app/"); 
             } catch (error) {
+                outputBox.style.color = "#ff4444";
                 outputBox.innerText += "\nExecution Error: " + error;
             } finally {
                 runBtn.disabled = false;
             }
         }
-
-        // Start the boot process
-        bootCheerpJ();
     </script>
 </body>
 </html>
